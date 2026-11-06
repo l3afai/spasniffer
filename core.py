@@ -11,9 +11,12 @@ from bs4 import BeautifulSoup
 this project will be a project meant to sniff SPAs (single page applications) for URLs, Fetch structures, HTML injection sinks, and client side input reflection.
 """
 
-
-
-def spider(url, scope, depth=3):
+def spider(url, scope, depth=3,visited=None):
+    if visited is None:
+        visited = set()
+    if url in visited or depth < 0:
+        return
+    visited.add(url)
     initreq = requests.get(url)
     soup = BeautifulSoup(initreq.text, "html.parser")
     links = set()
@@ -35,8 +38,8 @@ def spider(url, scope, depth=3):
     print(toscrape)
     if depth > 0:
         for link in toscrape:
-            spider(link,scope,depth)
-        depth -= 1
+            spider(link,scope,depth-1,visited)
+        
     return toscrape
 
 
