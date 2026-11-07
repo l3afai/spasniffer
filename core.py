@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 import subprocess
 from astscan import astscan
+import os
 """
 # SPASniffer
 
@@ -74,9 +75,17 @@ def main():
     with open(args.scope,"r") as sc:
         scope = sc.read().splitlines()
         sc.close()
-    #spscan = spider(args.url,scope)
-    #js_files = [item for item in spscan if item.endswith(".js")]
-    print(jsparser("http://angular.testinvicti.com/main.fbe5fbd112683a8c2d92.bundle.js"))
+    spscan = spider(args.url,scope)
+    js_files = [item for item in spscan if item.endswith(".js")]
+    #for now im too lazy to make a proper project management function so its gonna be hardcoded
+    os.makedirs("engagement1",exist_ok=True)
+    for idx,js_file in enumerate(js_files):
+        with open(f"engagement1/{idx}-results.json","w") as file:
+            file.write(str(jsparser(js_file)))
+        print(f"wrote {idx}")
+
+
+
     
 if  __name__ == "__main__":
 
