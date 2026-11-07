@@ -1,10 +1,10 @@
-#This is where main project orchestration will be handled
 import argparse
 import re 
 import requests
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
-import tqdm
+from tqdm import tqdm
+import subprocess
 """
 # SPASniffer
 
@@ -38,15 +38,31 @@ def spider(url, scope, depth=3, visited=None, progress=True):
             toscrape.append(full_url)
     
     if depth > 0:
-        for link in toscrape:
+        for link in tqdm(toscrape,):
             spider(link,scope,depth-1,visited)
         
     return visited
 
 
-  
-def parser(url):
-    resp = requests.get(url)
+
+def jsparser(url):
+   
+    js_code = requests.get(url).content
+    process = subprocess.Popen(
+        ['node', 'parser.js'],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+    
+
+    stdout, stderr = process.communicate(input=js_code)
+    
+    if process.returncode != 0:
+        print(f"error: {stderr.decode('utf-8', errors='ignore')}")
+            
+    with open("test.ast", "wb") as file:
+        file.write(stdout)
 
 def main():
     parser = argparse.ArgumentParser(description='SPASniffer')
@@ -56,8 +72,11 @@ def main():
     with open(args.scope,"r") as sc:
         scope = sc.read().splitlines()
         sc.close()
-    spscan = spider(args.url,scope)
-
+    #spscan = spider(args.url,scope)
+    #js_files = [item for item in spscan if item.endswith(".js")]
+    jsparser("http://angular.testinvicti.com/main.fbe5fbd112683a8c2d92.bundle.js")
+    
 if  __name__ == "__main__":
+
      main()
 
