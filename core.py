@@ -5,6 +5,7 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 import subprocess
+from astscan import astscan
 """
 # SPASniffer
 
@@ -63,6 +64,7 @@ def jsparser(url):
             
     with open("test.ast", "wb") as file:
         file.write(stdout)
+    return astscan("test.ast")
 
 def main():
     parser = argparse.ArgumentParser(description='SPASniffer')
@@ -74,7 +76,7 @@ def main():
         sc.close()
     #spscan = spider(args.url,scope)
     #js_files = [item for item in spscan if item.endswith(".js")]
-    jsparser("http://angular.testinvicti.com/main.fbe5fbd112683a8c2d92.bundle.js")
+    print(jsparser("http://angular.testinvicti.com/main.fbe5fbd112683a8c2d92.bundle.js"))
     
 if  __name__ == "__main__":
 
