@@ -38,6 +38,22 @@ def source(s):
             return m.group(0)
     return None
 
+def walkfunc(node, fn=None):
+    stack = [(node, fn)]
+    while stack:
+        n, fn = stack.pop()
+        if isinstance(n, dict):
+            if n.get("type") in ("FunctionDeclaration", "FunctionExpression", "ArrowFunctionExpression"):
+                fn = n
+            if "type" in n:
+                yield n, fn
+            for v in n.values():
+                if isinstance(v, (dict, list)):
+                    stack.append((v, fn))
+        elif isinstance(n, list):
+            for i in n:
+                stack.append((i, fn))
+
 def text(n):
     if not isinstance(n, dict):
         return ""
@@ -85,7 +101,7 @@ def astscan(path, scope=[]):
     sinks = []
     reflects = []
 
-    for n in walk(ast):
+    for n, fn in walkfunc(ast):
         t = n.get("type")
 
         # url in a string
