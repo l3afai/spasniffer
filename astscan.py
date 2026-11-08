@@ -28,9 +28,19 @@ def text(n):
     t = n.get("type")
     if t == "Identifier":
         return n.get("name", "")
-    if t in ("StringLiteral", "TemplateElement"):
+    if t in ("StringLiteral", "DirectiveLiteral"):
         return str(n.get("value", ""))
+    if t == "NumericLiteral":
+        return str(n.get("value"))
+    if t == "ThisExpression":
+        return "this"
+    if t == "TemplateElement":
+        return str((n.get("value") or {}).get("raw", ""))
+    if t == "TemplateLiteral":
+        return "".join(text(q) for q in n.get("quasis") or [])
     if t == "MemberExpression":
+        if n.get("computed"):
+            return text(n.get("object")) + "[" + text(n.get("property")) + "]"
         return text(n.get("object")) + "." + text(n.get("property"))
     if t == "CallExpression":
         return text(n.get("callee")) + "()"
