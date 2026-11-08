@@ -3,6 +3,15 @@ import json
 import re
 
 
+#ai-genned chunk
+SRC = [r'\blocation\.(hash|search|href|pathname)\b',
+       r'\bdocument\.(URL|referrer|cookie)\b',
+       r'\bwindow\.name\b',
+       r'\b(localStorage|sessionStorage)\.getItem\b',
+       r'\b(event|message)\.data\b',
+       r'\$routeParams\b']
+#end ai-genned chunk
+
 def walk(node):
     stack = [node]
     while stack:
@@ -21,6 +30,13 @@ def walk(node):
 def line(n):
     return (n.get("loc") or {}).get("start", {}).get("line", 0)
 
+
+def source(s):
+    for p in SRC:
+        m = re.search(p, s)
+        if m:
+            return m.group(0)
+    return None
 
 def text(n):
     if not isinstance(n, dict):
@@ -43,24 +59,27 @@ def text(n):
             return text(n.get("object")) + "[" + text(n.get("property")) + "]"
         return text(n.get("object")) + "." + text(n.get("property"))
     if t == "CallExpression":
-        return text(n.get("callee")) + "()"
+        return text(n.get("callee")) + "(" + ", ".join(text(a) for a in n.get("arguments") or []) + ")"
     if t == "BinaryExpression":
         return text(n.get("left")) + " + " + text(n.get("right"))
     return ""
 
 
-def source(s):
-    for pat in ["location.hash", "location.search", "document.URL",
-                "document.referrer", ".value", "event.data"]:
-        if pat in s:
-            return pat
-    return None
 
+def memberprop(n):
+    if not isinstance(n, dict) or n.get("type") != "MemberExpression":
+        return None
+    p = n.get("property") or {}
+    if p.get("type") == "Identifier":
+        return p.get("name")
+    if p.get("type") in ("StringLiteral", "NumericLiteral"):
+        return str(p.get("value"))
+    return None
 
 def astscan(path, scope=[]):
     with open(path) as f:
         ast = json.load(f)
-
+    seen = set()
     urls = []
     fetches = []
     sinks = []
@@ -71,8 +90,13 @@ def astscan(path, scope=[]):
 
         # url in a string
         if t == "StringLiteral":
-            v = str(n.get("value"))
-            if re.match(r'^(https?://|//|/)', v):
+            v = str(n.get("value")).strip()
+            if not re.match(r'^(https?://|//|/)', v):
+                continue 
+            if v in ("/", "//") or ".." in v or re.match(r'^/\(\$?', v):
+                continue
+            if v not in seen:
+                seen.add(v)
                 urls.append((v, line(n)))
 
         if t == "CallExpression":
@@ -90,7 +114,7 @@ def astscan(path, scope=[]):
                 sinks.append((callee, text(args[0]) if args else "", line(n)))
 
 
-        if t == "AssignmentExpression":
+        if t == "AssignmentExpression" and memberprop(n.get("left")) in ("innerHTML", "outerHTML"):
             left = text(n.get("left"))
             if left.endswith(".innerHTML") or left.endswith(".outerHTML"):
                 sinks.append((left, text(n.get("right")), line(n)))
@@ -100,9 +124,34 @@ def astscan(path, scope=[]):
             s = source(text(n))
             if s:
                 reflects.append((s, text(n), line(n)))
+        taint = {}
+    
+    for n in walk(ast):
+        if n.get("type") == "VariableDeclarator":
+            i = n.get("id") or {}
+            s = source(text(n.get("init")))
+            if i.get("type") == "Identifier" and s:
+                taint[i["name"]] = s
+    for _ in range(5):
+        for n in walk(ast):
+            if n.get("type") == "AssignmentExpression":
+                l = n.get("left") or {}
+                if l.get("type") == "Identifier":
+                    for k, s in taint.items():
+                        if re.search(r'\b' + k + r'\b', text(n.get("right"))):
+                            taint[l["name"]] = s
+                            break
+
+    sinkvals = [s[1] for s in sinks]
+    reflects = [r for r in reflects if any(r[1] and r[1] in v for v in sinkvals)]
+    for s in sinks:
+        for k, src in taint.items():
+            if re.search(r'\b' + k + r'\b', s[1]):
+                reflects.append(("taint:" + src, s[1], s[2]))
+    reflects = list(dict.fromkeys(reflects))
 
     if scope:
         urls = [u for u in urls if u[0].startswith("/") or any(x in u[0] for x in scope)]
 
-    return {"urls": urls, "fetches": fetches, "sinks": sinks, "reflects": reflects}
-
+    fetches = list(dict.fromkeys(fetches))
+    return {"urls": urls, "fetches": fetches, "sinks": [s[:3] for s in sinks], "reflects": reflects, "taint": {k[1]: v for k, v in taint.items()}}

@@ -1,1 +1,1 @@
-{'urls': [], 'fetches': [], 'sinks': [], 'reflects': []}
+{'urls': [], 'fetches': [], 'sinks': [('a.find(.popover-title).html', '', 7)], 'reflects': [], 'taint': {}}
