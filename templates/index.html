@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPAsniffer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Item List</h1>
+
+        <form action="{{ url_for('add') }}" method="POST">
+            <input type="text" name="title" placeholder="New item..." required>
+            <button type="submit">Add</button>
+        </form>
+
+        <ul>
+            {% for item in items %}
+                <li>
+                    <span>{{ item.title }}</span>
+                    <a href="{{ url_for('delete', id=item.id) }}" class="delete-btn">Delete</a>
+                </li>
+            {% else %}
+                <p>No items added yet.</p>
+            {% endfor %}
+        </ul>
+    </div>
+</body>
+</html>

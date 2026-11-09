@@ -125,15 +125,13 @@ def astscan(path, scope=[]):
             if callee.endswith(".open") and len(args) > 1:
                 fetches.append((text(args[0]), text(args[1]), line(n)))
             if callee.endswith(".html") or callee.endswith(".append"):
-                sinks.append((callee, text(args[0]) if args else "", line(n)))
+                sinks.append((callee, text(args[0]) if args else "", line(n), id(fn)))
             if callee == "document.write" or callee == "document.writeln":
-                sinks.append((callee, text(args[0]) if args else "", line(n)))
+                sinks.append((callee, text(args[0]) if args else "", line(n), id(fn)))
 
 
         if t == "AssignmentExpression" and memberprop(n.get("left")) in ("innerHTML", "outerHTML"):
-            left = text(n.get("left"))
-            if left.endswith(".innerHTML") or left.endswith(".outerHTML"):
-                sinks.append((left, text(n.get("right")), line(n)))
+            sinks.append((text(n.get("left")), text(n.get("right")), line(n), id(fn)))
 
 
         if t in ("MemberExpression", "Identifier"):
