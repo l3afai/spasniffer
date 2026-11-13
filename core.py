@@ -126,8 +126,4 @@ def main():
     
 if  __name__ == "__main__":
 
-    merged_openapi = {
-        "openapi": "3.0.3",
-        "info": {"title": "SPASniffer Autogenned API Spec", "version": "1.0.0"},
-        "paths": {},
-    }
+    main()
