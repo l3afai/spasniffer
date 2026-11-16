@@ -2,7 +2,7 @@ import argparse
 import json
 import os
 import subprocess
-from urllib.parse import urljoin
+from urllib.parse import urljoin,urlparse
 from bs4 import BeautifulSoup
 import requests
 from tqdm import tqdm
@@ -23,8 +23,11 @@ def spider(url, scope, depth=3, visited=None, progress=True):
     links = set()
     ignore = {"/", "", "#", "#top", "javascript:void(0)"}
     if url in visited or depth < 0:
-        return
+        return visited
     visited.add(url)
+    if urlparse(url).path.endswith((".js", ".mjs", ".css", ".png", ".jpg", ".svg", ".woff2")):
+        return visited
+        
     try:
         initreq = requests.get(url, timeout=10)
         soup = BeautifulSoup(initreq.text, "html.parser")
@@ -71,8 +74,7 @@ def jsparser(url):
 
     stdout, stderr = process.communicate(input=js_code)
     
-    if process.returncode != 0:
-        print(f"error: {stderr.decode('utf-8', errors='ignore')}")
+
     try:
         ast_json = json.loads(stdout.decode('utf-8', errors='ignore'))
         return astscan(ast_json)
@@ -86,25 +88,30 @@ def main():
     parser.add_argument('--scope', type=str, required=True, help="Scope of the SPA in a text file")
     parser.add_argument('--openapi-out', type=str, default=None, help="Output destination for openapi.json")
     args = parser.parse_args()
+    directory = "engagement"
     merged_openapi = {
         "openapi": "3.0.3",
         "info": {"title": "SPASniffer Discovered API", "version": "1.0.0"},
         "paths": {},
     }
-
+    
     with open(args.scope,"r") as sc:
         scope = sc.read().splitlines()
 
+    if args.openapi_out:
+        directory = args.openapi_out
+    os.makedirs(directory,exist_ok=True)
+
     spscan = spider(args.url,scope)
-    js_files = [item for item in spscan if item.endswith(".js")]
+    js_files = [u for u in spscan if urlparse(u).path.endswith((".js", ".mjs"))]
 
     for idx, js_file in enumerate(js_files):
         result = jsparser(js_file)
-
+    
         # write valid formatted JSON result per file
-        with open(f"engagement/{idx}-results.json", "w", encoding="utf-8") as file:
+        with open(f"{directory}/{idx}-results.json", "w", encoding="utf-8") as file:
             json.dump(result, file, indent=2)
-        print(f"[parsed {js_file} at engagement/{idx}-results.json")
+        print(f"parsed {js_file} at {directory}/{idx}-results.json")
 
         # aggregate discovered routes
         file_paths = result.get("openapi", {}).get("paths", {})
@@ -114,7 +121,7 @@ def main():
             merged_openapi["paths"][path].update(methods)
 
     # write openapi spec
-    openapi_file = args.openapi_out or "engagement/openapi.json"
+    openapi_file = f"{directory}/openapi.json"
     with open(openapi_file, "w", encoding="utf-8") as f:
         json.dump(merged_openapi, f, indent=2)
 

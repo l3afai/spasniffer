@@ -298,12 +298,15 @@ def astscan(target, scope=[]):
             callee = text(n.get("callee"))
             args = n.get("arguments") or []
 
+            if not op and callee in ("fetch", "window.fetch"):
+                fetches.append(("GET", text(args[0]) if args else "", line(n)))
+
             # XHR open
             if callee.endswith(".open") and len(args) > 1:
                 fetches.append((text(args[0]), text(args[1]), line(n)))
             if callee.endswith(".html") or callee.endswith(".append"):
                 sinks.append((callee, text(args[0]) if args else "", line(n), id(fn)))
-            if callee in "document.write" or callee in "document.writeln":
+            if callee in ("document.write", "document.writeln"):
                 sinks.append((callee, text(args[0]) if args else "", line(n), id(fn)))
 
 
