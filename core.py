@@ -96,7 +96,7 @@ def main():
     }
     
     with open(args.scope,"r") as sc:
-        scope = sc.read().splitlines()
+        scope = [line.strip() for line in sc if line.strip()]
 
     if args.openapi_out:
         directory = args.openapi_out

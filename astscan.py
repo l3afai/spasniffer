@@ -357,3 +357,4 @@ def astscan(target, scope=[]):
         "taint": taint,
         "openapi": openapi,
     }
+    #when the openapi generator dont work
